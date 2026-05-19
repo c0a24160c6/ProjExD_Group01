@@ -5,7 +5,7 @@ import sys
 pg.init()
 WIDTH, HEIGHT = 900, 600
 screen = pg.display.set_mode((WIDTH, HEIGHT))
-pg.display.set_caption("大富豪（複数枚出し 完全版）")
+pg.display.set_caption("大富豪（CPU複数枚出し 完全版）")
 clock = pg.time.Clock()
 
 font = pg.font.SysFont("meiryo", 24)
@@ -27,13 +27,13 @@ def create_deck():
     return deck
 
 # -------------------------
-# CPUの行動（1枚出しのみ）
+# CPUの行動（複数枚出し対応）
 # -------------------------
 def cpu_play(hand, field):
     if len(hand) == 0:
         return None
 
-    # 手札をランクごとにまとめる
+    # ランクごとにまとめる
     groups = {}
     for c in hand:
         groups.setdefault(c[1], []).append(c)
@@ -42,7 +42,6 @@ def cpu_play(hand, field):
     # 場が流れている（自由に出せる）
     # -------------------------
     if field is None:
-        # 最弱の複数枚を優先
         multi = [g for g in groups.values() if len(g) >= 2]
         if multi:
             play = min(multi, key=lambda g: g[0][1])
@@ -50,7 +49,6 @@ def cpu_play(hand, field):
                 hand.remove(c)
             return play
 
-        # 複数枚が無ければ最弱の1枚
         card = min(hand, key=lambda c: c[1])
         hand.remove(card)
         return card
@@ -62,7 +60,6 @@ def cpu_play(hand, field):
         need = len(field)
         base_rank = field[0][1]
 
-        # 同じ枚数で、場より強い複数枚を探す
         candidates = []
         for r, g in groups.items():
             if len(g) == need and r > base_rank:
@@ -74,26 +71,13 @@ def cpu_play(hand, field):
                 hand.remove(c)
             return play
 
-        return None  # 出せない
+        return None
 
     # -------------------------
-    # 場が1枚出し
+    # 場が1枚出し（CPUは必ず1枚だけ出す）
     # -------------------------
     base_rank = field[1]
 
-    # まず複数枚を優先
-    multi = []
-    for r, g in groups.items():
-        if len(g) >= 2 and r > base_rank:
-            multi.append(g)
-
-    if multi:
-        play = min(multi, key=lambda g: g[0][1])
-        for c in play:
-            hand.remove(c)
-        return play
-
-    # 次に1枚出し
     valid = [c for c in hand if c[1] > base_rank]
     if valid:
         card = min(valid, key=lambda c: c[1])
@@ -246,7 +230,7 @@ def play_game():
                         message = "カードを選択してください"
                         continue
 
-                    # ★ 複数枚出し（同じ数字のみ）
+                    # 複数枚出し（同じ数字のみ）
                     ranks = [c[1] for c in selected_cards]
                     if len(set(ranks)) != 1:
                         message = "同じ数字のカードだけ複数枚出せます"
@@ -319,15 +303,10 @@ def play_game():
                 field = card
 
                 if isinstance(card, list):
-                    # 複数枚出し
                     text = " ".join(card_to_text(c) for c in card)
                     message = f"CPU{turn} は {text} を出した"
                 else:
-                    # 1枚出し
                     message = f"CPU{turn} は {card_to_text(card)} を出した"
-
-                last_player = turn
-                pass_count = 0
 
                 last_player = turn
                 pass_count = 0
