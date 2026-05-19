@@ -5,7 +5,7 @@ import sys
 pg.init()
 WIDTH, HEIGHT = 900, 600
 screen = pg.display.set_mode((WIDTH, HEIGHT))
-pg.display.set_caption("大富豪（CPU複数枚出し 完全版）")
+pg.display.set_caption("大富豪（複数枚＋階段＋CPU対応 完全版）")
 clock = pg.time.Clock()
 
 font = pg.font.SysFont("meiryo", 24)
@@ -14,34 +14,88 @@ font = pg.font.SysFont("meiryo", 24)
 # カードの準備
 # -------------------------
 suits = ["♠", "♥", "♦", "♣"]
-ranks = list(range(3, 15))  # 3〜A
-rank_name = {11:"J", 12:"Q", 13:"K", 14:"A"}
+ranks = list(range(3, 16))  # 3〜A
+rank_name = {11:"J", 12:"Q", 13:"K", 14:"A",15:"2"}#数字と記号を合わせる
 
 def card_to_text(card):
+    """
+    引数：カードのlist
+    何を出したかの文章生成
+    """
     s, r = card
-    return f"{s}{r if r <= 10 else rank_name[r]}"
+    return f"{s}{r if r <= 10 else rank_name[r]}"#文字と数字で分けて考えてtxt表示
 
 def create_deck():
-    deck = [(s, r) for s in suits for r in ranks]
-    random.shuffle(deck)
+    """
+    デッキの作成（トランプ52枚）
+    """
+    deck = [(s, r) for s in suits for r in ranks]#数字とスートを組み合わせる
+    random.shuffle(deck)#作ったdeckのシャッフル
     return deck
 
-# -------------------------
-# CPUの行動（複数枚出し対応）
-# -------------------------
+def is_straight(cards):
+    """
+    階段判定（スート無視・連番）
+    引数：プレイヤーが選んだカードのlist
+    Trueで階段判定、Falseで階段ではない判定
+    """
+    if len(cards) < 2:#選んだカードが２枚未満だとそもそも階段ではないからFalse
+        return False
+    ranks_ = sorted(c[1] for c in cards)#listカードからint型数字を取り出す
+    for i in range(len(ranks_) - 1):#取り出した数字から+1してあっている数字ではなかったらFalse
+        if ranks_[i] + 1 != ranks_[i+1]:#[5,4,6]-->soted[4,5,6]-->判定
+            return False
+    return True
+
+def find_straights(hand):
+    """
+    # CPU用：手札から階段候補を探す（長さ2以上の連番）
+    引数：手札
+    """
+    straights = []
+    # ランクだけで見ればいいので、スートは無視してソート
+    hand_sorted = sorted(hand, key=lambda c: c[1])#lambdaで簡単な関数表記＋カードlistの数字を取り出す
+    temp = [hand_sorted[0]]#階段になるものを探してtempにlistで追加する
+    for i in range(1, len(hand_sorted)):#CPUの手札にある連番を見つける
+        if hand_sorted[i][1] == hand_sorted[i-1][1] + 1:#CPUhandの中の連番なりそうなものを探している
+            temp.append(hand_sorted[i])#tempに追加
+        else:
+            if len(temp) >= 2:
+                straights.append(temp.copy())
+            temp = [hand_sorted[i]]
+    if len(temp) >= 2:
+        straights.append(temp.copy())
+    return straights
+
 def cpu_play(hand, field):
+    """
+    # -------------------------
+    # CPUの行動（複数枚＋階段対応）
+    # 引数：手札とその場
+    """
     if len(hand) == 0:
         return None
 
-    # ランクごとにまとめる
+    # ランクごとにまとめる（同ランク複数枚用）
     groups = {}
     for c in hand:
         groups.setdefault(c[1], []).append(c)
 
-    # -------------------------
-    # 場が流れている（自由に出せる）
-    # -------------------------
+    straights = find_straights(hand)
+
     if field is None:
+        # -------------------------
+        # 場が流れている（自由に出せる）
+        # -------------------------
+        
+        # 1. 最弱の階段
+        if straights:
+            play = min(straights, key=lambda s: s[-1][1])
+            for c in play:
+                hand.remove(c)
+            return play
+
+        # 2. 最弱の複数枚（同ランク）
         multi = [g for g in groups.values() if len(g) >= 2]
         if multi:
             play = min(multi, key=lambda g: g[0][1])
@@ -49,35 +103,56 @@ def cpu_play(hand, field):
                 hand.remove(c)
             return play
 
+        # 3. 最弱の1枚
         card = min(hand, key=lambda c: c[1])
         hand.remove(card)
         return card
 
-    # -------------------------
-    # 場が複数枚出し
-    # -------------------------
     if isinstance(field, list):
-        need = len(field)
-        base_rank = field[0][1]
-
-        candidates = []
-        for r, g in groups.items():
-            if len(g) == need and r > base_rank:
-                candidates.append(g)
-
-        if candidates:
-            play = min(candidates, key=lambda g: g[0][1])
-            for c in play:
-                hand.remove(c)
-            return play
-
-        return None
+        """
+        # -------------------------
+        # 場がリスト（複数枚 or 階段）
+        # -------------------------
+        """
+        # 場が階段かどうか
+        if is_straight(field):
+            need = len(field)
+            field_ranks = sorted(c[1] for c in field)
+            max_f = field_ranks[-1]
+            start_needed = max_f + 1
+            # 「場の最大の次の数字から始まる同じ長さの階段」
+            candidates = []
+            for s in straights:
+                if len(s) != need:
+                    continue
+                ranks_s = sorted(c[1] for c in s)
+                if ranks_s[0] == start_needed:
+                    candidates.append(s)
+            if candidates:
+                play = min(candidates, key=lambda s: s[-1][1])
+                for c in play:
+                    hand.remove(c)
+                return play
+            return None
+        else:
+            # 同ランク複数枚として比較
+            need = len(field)
+            base_rank = field[0][1]
+            candidates = []
+            for r, g in groups.items():
+                if len(g) == need and r > base_rank:
+                    candidates.append(g)
+            if candidates:
+                play = min(candidates, key=lambda g: g[0][1])
+                for c in play:
+                    hand.remove(c)
+                return play
+            return None
 
     # -------------------------
-    # 場が1枚出し（CPUは必ず1枚だけ出す）
+    # 場が1枚出し（CPUは必ず1枚だけ出す・階段は出さない）
     # -------------------------
     base_rank = field[1]
-
     valid = [c for c in hand if c[1] > base_rank]
     if valid:
         card = min(valid, key=lambda c: c[1])
@@ -86,10 +161,12 @@ def cpu_play(hand, field):
 
     return None
 
-# -------------------------
-# カード描画
-# -------------------------
 def draw_card(x, y, card):
+    """
+    # -------------------------
+    # カード描画
+    # -------------------------
+    """
     s, r = card
     rect = pg.Rect(x, y, 60, 90)
 
@@ -108,10 +185,12 @@ def draw_card(x, y, card):
 
     return rect
 
-# -------------------------
-# プレイヤー手札（選択対応）
-# -------------------------
 def draw_player_hand(hand, selected_cards):
+    """
+    # -------------------------
+    # プレイヤー手札（選択対応）
+    # -------------------------
+    """
     rects = []
     for i, card in enumerate(hand):
         row = i // 10
@@ -126,10 +205,12 @@ def draw_player_hand(hand, selected_cards):
         rects.append((rect, card))
     return rects
 
-# -------------------------
-# ボタン
-# -------------------------
 def draw_pass_button():
+    """
+    # -------------------------
+    # ボタン
+    # -------------------------
+    """
     rect = pg.Rect(700, 450, 150, 60)
     pg.draw.rect(screen, (200, 50, 50), rect)
     pg.draw.rect(screen, (255, 255, 255), rect, 3)
@@ -143,12 +224,13 @@ def draw_play_button():
     screen.blit(font.render("出す", True, (255, 255, 255)), (740, 400))
     return rect
 
-# -------------------------
-# リザルト画面
-# -------------------------
 rank_name_list = ["あなた", "CPU1", "CPU2", "CPU3"]
-
 def show_result_screen(finished):
+    """
+    # -------------------------
+    # リザルト画面
+    # -------------------------
+    """
     running = True
 
     if finished[0] == 0:
@@ -230,22 +312,50 @@ def play_game():
                         message = "カードを選択してください"
                         continue
 
-                    # 複数枚出し（同じ数字のみ）
-                    ranks = [c[1] for c in selected_cards]
-                    if len(set(ranks)) != 1:
-                        message = "同じ数字のカードだけ複数枚出せます"
+                    ranks_sel = [c[1] for c in selected_cards]
+                    same_rank = (len(set(ranks_sel)) == 1)
+                    straight = is_straight(selected_cards)
+
+                    # 場が1枚のときは階段禁止
+                    if isinstance(field, tuple) and straight:
+                        message = "場が1枚のときは階段は出せません"
                         continue
 
-                    # 場が複数枚出し
-                    if isinstance(field, list):
-                        if len(field) != len(selected_cards):
-                            message = "枚数が違います"
-                            continue
-                        if selected_cards[0][1] <= field[0][1]:
-                            message = "弱いです"
-                            continue
+                    # 同ランクでも階段でもない → エラー
+                    if len(selected_cards) >= 2 and (not same_rank and not straight):
+                        message = "同じ数字か階段だけ出せます"
+                        continue
 
-                    # 場が1枚出し
+                    # 場が複数枚 or 階段
+                    if isinstance(field, list):
+                        if is_straight(field):
+                            # 場が階段 → 階段同士で比較
+                            if not straight:
+                                message = "場は階段です"
+                                continue
+                            if len(field) != len(selected_cards):
+                                message = "枚数が違います"
+                                continue
+                            field_ranks = sorted(c[1] for c in field)
+                            max_f = field_ranks[-1]
+                            sel_ranks = sorted(c[1] for c in selected_cards)
+                            # 「場の最大の次の数字から始まる」かどうか
+                            if sel_ranks[0] != max_f + 1:
+                                message = "その階段は出せません"
+                                continue
+                        else:
+                            # 場が同ランク複数枚
+                            if not same_rank:
+                                message = "場は同じ数字の複数枚です"
+                                continue
+                            if len(field) != len(selected_cards):
+                                message = "枚数が違います"
+                                continue
+                            if selected_cards[0][1] <= field[0][1]:
+                                message = "弱いです"
+                                continue
+
+                    # 場が1枚
                     if isinstance(field, tuple):
                         if len(selected_cards) != 1:
                             message = "複数枚出しはできません（場が1枚）"
@@ -266,8 +376,8 @@ def play_game():
                     selected_cards.clear()
                     last_player = 0
                     pass_count = 0
-                    turn = 1
                     message = "カードを出した"
+                    turn = 1
                     continue
 
                 # PASS
