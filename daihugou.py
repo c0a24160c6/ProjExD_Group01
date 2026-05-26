@@ -345,15 +345,7 @@ def play_game():
                             sk=0
                             continue
 
-                        #スキップ時の処理
-                    if(sk >= 1): #skに数値が入った場合スキップ処理
-                        selected_cards.clear()
-                        last_player = 0
-                        pass_count = 0
-                        turn = sk
-                        message = "スキップ！"
-                        continue
-                    else: #通常のカード処理
+
                     # 出す処理
                         for c in selected_cards:
                             hands[0].remove(c)
@@ -374,12 +366,22 @@ def play_game():
                         message = "革命発動！" if revolution else "革命返し！"
                     else:
                         message = "カードを出した"
-
-                    selected_cards.clear()
-                    last_player = 0
-                    pass_count = 0
-                    turn = 1
-                    continue
+                                        #スキップ時の処理
+                    if(sk >= 1): #skに数値が入った場合スキップ処理
+                        selected_cards.clear()
+                        last_player = 0
+                        pass_count = 0
+                        turn = sk
+                        message = "スキップ！"
+                        continue
+                    
+                    else: #通常のカード処理
+                        selected_cards.clear()
+                        last_player = 0
+                        pass_count = 0
+                        turn = 1
+                        message = "カードを出した"
+                        continue
 
                 # PASS
                 pass_rect = draw_pass_button()
