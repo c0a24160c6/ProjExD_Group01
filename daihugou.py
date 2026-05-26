@@ -344,13 +344,13 @@ def play_game():
                         else:
                             sk=0
                             continue
-
-
+                    
                     # 出す処理
-                        for c in selected_cards:
-                            hands[0].remove(c)
+                    for c in selected_cards:
+                        hands[0].remove(c)
 
-                        field = selected_cards[0] if len(selected_cards) == 1 else selected_cards.copy()
+                    field = selected_cards[0] if len(selected_cards) == 1 else selected_cards.copy()
+
 
                     # マーク縛り更新
                     new_suit = selected_cards[0][0]
