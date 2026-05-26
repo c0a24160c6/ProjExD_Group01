@@ -44,8 +44,7 @@ def create_deck():
 # def cpu_play(hand, field):
 #def cpu_play(hand, field, locked_suit):
 #=======
-def cpu_play(hand, field, revolution,locked_suit):
-#>>>>>>> main
+def cpu_play(hand, field, revolution, locked_suit):
     if len(hand) == 0:
         return None
 
@@ -58,41 +57,38 @@ def cpu_play(hand, field, revolution,locked_suit):
     # 場が流れている（自由に出せる）
     # -------------------------
     if field is None:
+        # 複数枚出し
         multi = [g for g in groups.values() if len(g) >= 2]
-        
+
+        # マーク縛り中
+        if locked_suit is not None:
+            multi = [g for g in multi if all(c[0] == locked_suit for c in g)]
+
         if multi:
-            # 複数枚出し優先（革命中は強い方を優先）
             play = (
                 min(multi, key=lambda g: g[0][1])
                 if not revolution
                 else max(multi, key=lambda g: g[0][1])
             )
-
             for c in play:
                 hand.remove(c)
             return play
-          valid=hand
-        if locked_suit is not None:
-           valid =[c for c in hand if c[0]== locked_suit]
-        if valid:
-          card =(
-            min(valid,key=lambda c:c[1])
-            if not revolution
-            else max(valid,key=lambda c:c[1])
-          )
-          hand.remove(card)
-          return card
-       
-      return None
 
-        card = (
-            min(hand, key=lambda c: c[1])
-            if not revolution
-            else max(hand, key=lambda c: c[1])
-            )# 革命時の処理
-        
-        hand.remove(card)
-        return card
+        # 1枚出し
+        valid = hand
+        if locked_suit is not None:
+            valid = [c for c in hand if c[0] == locked_suit]
+
+        if valid:
+            card = (
+                min(valid, key=lambda c: c[1])
+                if not revolution
+                else max(valid, key=lambda c: c[1])
+            )
+            hand.remove(card)
+            return card
+
+        return None
 
     # -------------------------
     # 場が複数枚出し
@@ -103,27 +99,24 @@ def cpu_play(hand, field, revolution,locked_suit):
 
         candidates = []
         for r, g in groups.items():
-          if len(g) != need:
-            continue
-          if not is_stronger(r,base_rank,revolution):
-            continue
-          if locked_suit is not None:
-            if not all(c[0]==locked_suit for c in g):
-              continue
-          candidates.append(g)
-#<<<<<<< C0A24227/マーク縛り
-            #if len(g) == need and r > base_rank:
-                #if locked_suit is None or all(c[0] == locked_suit for c in g):
-                    #candidates.append(g)
-#=======
-            #if len(g) == need and is_stronger(r, base_rank, revolution):
-                #candidates.append(g)
-#>>>>>>> main
+            if len(g) != need:
+                continue
+            if not is_stronger(r, base_rank, revolution):
+                continue
+
+            # マーク縛り中
+            if locked_suit is not None:
+                if not all(c[0] == locked_suit for c in g):
+                    continue
+
+            candidates.append(g)
 
         if candidates:
-            play = min(candidates, key=lambda g: g[0][1])
-                   if not recolution
-                    else max(candidates,key=lambda g:g[0][1])
+            play = (
+                min(candidates, key=lambda g: g[0][1])
+                if not revolution
+                else max(candidates, key=lambda g: g[0][1])
+            )
             for c in play:
                 hand.remove(c)
             return play
@@ -131,12 +124,16 @@ def cpu_play(hand, field, revolution,locked_suit):
         return None
 
     # -------------------------
-    # 場が1枚出し（CPUは必ず1枚だけ出す）
+    # 場が1枚出し
     # -------------------------
     base_rank = field[1]
-    valid= [c for c in hand if is_stronger(c[1],base_rank,revolution)]
+
+    valid = [c for c in hand if is_stronger(c[1], base_rank, revolution)]
+
+    # マーク縛り中
     if locked_suit is not None:
-      valid=[c for c in valid if c[0] == locked_suit]
+        valid = [c for c in valid if c[0] == locked_suit]
+
     if valid:
         card = (
             min(valid, key=lambda c: c[1])
@@ -147,7 +144,8 @@ def cpu_play(hand, field, revolution,locked_suit):
         return card
 
     return None
-#<<<<<<< C0A24227/マーク縛り
+
+
     # まず複数枚を優先
     #multi = []
     #for r, g in groups.items():
@@ -165,20 +163,20 @@ def cpu_play(hand, field, revolution,locked_suit):
     #マーク縛り
     #if locked_suit is not None:
         #valid = [c for c in valid if c[0] == locked_suit]
-=======
+
     #valid = [c for c in hand if is_stronger(c[1], base_rank, revolution)]
     
-#>>>>>>> main
-    if valid:
-        card = (
-            min(valid, key=lambda c: c[1])
-            if not revolution
-            else max(valid, key=lambda c: c[1])
-            )# 革命時の処理
-        hand.remove(card)
-        return card
 
-    return None
+    # if valid:
+    #     card = (
+    #         min(valid, key=lambda c: c[1])
+    #         if not revolution
+    #         else max(valid, key=lambda c: c[1])
+    #         )# 革命時の処理
+    #     hand.remove(card)
+    #     return card
+
+    # return None
 
 # -------------------------
 # カード描画
@@ -367,7 +365,7 @@ def play_game():
                     else:
                         field = selected_cards.copy()
 
-#<<<<<<< C0A24227/マーク縛り
+
                     #マーク縛り更新
                     if len(selected_cards) == 1:
                         new_suit = selected_cards[0][0]
@@ -381,7 +379,7 @@ def play_game():
                         #マークが変わったら解除
                         if new_suit != locked_suit:
                             locked_suit = None
-#=======
+
                     # 革命判定
                     if len(selected_cards) == 4:
                         revolution = not revolution
@@ -390,7 +388,7 @@ def play_game():
                             message = "革命発動！ 強さが逆転した！"
                         else:
                             message = "革命返し！ 強さが元に戻った！"
-#>>>>>>> main
+
 
                     selected_cards.clear()
                     last_player = 0
@@ -430,12 +428,11 @@ def play_game():
 
             pg.time.wait(300)
 
-#<<<<<<< C0A24227/マーク縛り
             # card = cpu_play(hands[turn], field)
             #card = cpu_play(hands[turn], field, locked_suit)
-#=======
+
             card = cpu_play(hands[turn], field, revolution,locked_suit)
-#>>>>>>> main
+
             if card:
                 field = card
                 # 革命判定
